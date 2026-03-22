@@ -68,7 +68,7 @@ pub fn extract_pages(path: &str, from: u32, to: u32) -> Result<PdfContent> {
     let pages = (from..=to)
         .filter_map(|n| {
             let page_id = *page_ids.get(&n)?;
-            let text = extract_page_text(&doc, page_id).unwrap_or_default();
+            let text = extract_page_text(&doc, page_id, n).unwrap_or_default();
             Some(PageContent { page_number: n, text })
         })
         .collect();
@@ -84,7 +84,7 @@ fn extract_all_pages(doc: &Document) -> Result<Vec<PageContent>> {
     let pages = page_ids
         .into_iter()
         .map(|(number, id)| {
-            let text = extract_page_text(doc, id).unwrap_or_default();
+            let text = extract_page_text(doc, id, number).unwrap_or_default();
             PageContent { page_number: number, text }
         })
         .collect();
@@ -92,15 +92,14 @@ fn extract_all_pages(doc: &Document) -> Result<Vec<PageContent>> {
     Ok(pages)
 }
 
-fn extract_page_text(doc: &Document, page_id: lopdf::ObjectId) -> Result<String> {
-    let content_streams = doc
+fn extract_page_text(doc: &Document, page_id: lopdf::ObjectId, page_number: u32) -> Result<String> {
+    let _content_streams = doc
         .get_page_content(page_id)
         .with_context(|| "Failed to read page content stream")?;
 
-    // Decode the raw bytes of the content stream into text tokens
-    // lopdf's extract_text gives us the raw character codes; we decode them
+    // extract_text takes 1-indexed page numbers, not object IDs
     let raw = doc
-        .extract_text(&[page_id.0])
+        .extract_text(&[page_number])
         .unwrap_or_default();
 
     // Normalize whitespace: collapse runs, trim lines
